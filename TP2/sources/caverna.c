@@ -22,7 +22,7 @@ void lerArquivo(char* caminho, Caverna* caverna) {
             if (celula[0] == 'F') 
                 caverna->matriz[i][j] = 'F'; 
             else if (celula[0] == 'I') 
-                caverna->matriz[i][j] = 0; 
+                caverna->matriz[i][j] = 'I'; 
             else 
                 caverna->matriz[i][j] = atoi(celula); 
         }

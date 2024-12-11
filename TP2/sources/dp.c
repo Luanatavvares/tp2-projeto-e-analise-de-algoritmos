@@ -4,16 +4,23 @@
 #include "../headers/caverna.h"
 #include "../headers/dp.h"
 
+#define MAX_CAMINHO (MAX_LINHAS * MAX_COLUNAS)
 
 int encontrarMelhorCaminho(Caverna* caverna, int caminho[][2]) {
     CelulaDP dp[MAX_LINHAS][MAX_COLUNAS];
-    int fim_x = -1, fim_y = -1;
+    int inicio_x = -1, inicio_y = -1, fim_x = -1, fim_y = -1;
 
+    // Inicializar a matriz DP e encontrar pontos de início ('I') e fim ('F')
     for (int i = 0; i < caverna->linhas; i++) {
         for (int j = 0; j < caverna->colunas; j++) {
-            dp[i][j].pontos_vida = -1; 
+            dp[i][j].pontos_vida = INT_MIN; // Inicializa com o menor valor possível
             dp[i][j].veio_x = -1;
             dp[i][j].veio_y = -1;
+
+            if (caverna->matriz[i][j] == 'I') {
+                inicio_x = i;
+                inicio_y = j;
+            }
 
             if (caverna->matriz[i][j] == 'F') {
                 fim_x = i;
@@ -22,106 +29,88 @@ int encontrarMelhorCaminho(Caverna* caverna, int caminho[][2]) {
         }
     }
 
-    if (fim_x == -1 || fim_y == -1) {
-        printf("Erro: posição de saída 'F' não encontrada.\n");
+    // Verificar se pontos inicial e final foram encontrados
+    if (inicio_x == -1 || inicio_y == -1 || fim_x == -1 || fim_y == -1) {
+        printf("Erro: pontos de entrada 'I' ou saída 'F' não encontrados na matriz.\n");
         return 0;
     }
 
-    int melhor_pontos = INT_MIN;
-    int melhor_inicio_x = -1, melhor_inicio_y = -1;
+    // Inicializar a posição inicial na matriz DP
+    dp[inicio_x][inicio_y].pontos_vida = caverna->pontos_iniciais;
 
-    for (int inicio_i = 0; inicio_i < caverna->linhas; inicio_i++) {
-        for (int inicio_j = 0; inicio_j < caverna->colunas; inicio_j++) {
-            if (inicio_i != 0 && inicio_i != caverna->linhas - 1 && 
-                inicio_j != 0 && inicio_j != caverna->colunas - 1) 
-                continue;
+    // Usar uma fila para processar as células
+    typedef struct {
+        int x, y;
+    } Posicao;
 
+    Posicao fila[MAX_CAMINHO];
+    int frente = 0, tras = 0;
 
-            for (int i = 0; i < caverna->linhas; i++) {
-                for (int j = 0; j < caverna->colunas; j++) {
-                    dp[i][j].pontos_vida = -1;
-                    dp[i][j].veio_x = -1;
-                    dp[i][j].veio_y = -1;
-                }
-            }
+    fila[tras++] = (Posicao){inicio_x, inicio_y};
 
-            dp[inicio_i][inicio_j].pontos_vida = caverna->pontos_iniciais + caverna->matriz[inicio_i][inicio_j];
+    // Movimentos possíveis (cima e esquerda apenas)
+    int dx[] = {-1, 0};
+    int dy[] = {0, -1};
 
-            if (dp[inicio_i][inicio_j].pontos_vida <= 0) {
-                printf("Caminho inicial inválido em (%d, %d) com pontos de vida: %d\n", inicio_i, inicio_j, dp[inicio_i][inicio_j].pontos_vida);
-                continue;
-            }
+    while (frente < tras) {
+        Posicao atual = fila[frente++];
+        int x = atual.x;
+        int y = atual.y;
 
-            // Computar caminhos
-            for (int i = inicio_i; i < caverna->linhas; i++) {
-                for (int j = (i == inicio_i ? inicio_j : 0); j < caverna->colunas; j++) {
-                    if (i == inicio_i && j == inicio_j) continue;
+        int pontos_atual = dp[x][y].pontos_vida;
 
-                    int max_pontos = INT_MIN, origem_x = -1, origem_y = -1;
+        for (int d = 0; d < 2; d++) {
+            int nx = x + dx[d];
+            int ny = y + dy[d];
 
-                    // Verificar movimentos válidos
-                    if (i > 0 && dp[i - 1][j].pontos_vida > 0) {
-                        int pontos_atual = dp[i - 1][j].pontos_vida + caverna->matriz[i][j];
-                        if (pontos_atual > max_pontos && pontos_atual > 0) {
-                            max_pontos = pontos_atual;
-                            origem_x = i - 1;
-                            origem_y = j;
-                        }
-                    }
+            if (nx >= 0 && ny >= 0 && caverna->matriz[nx][ny] != '#') {
+                int valor_celula = (caverna->matriz[nx][ny] == 'F' || caverna->matriz[nx][ny] == 'I')
+                                    ? 0
+                                    : caverna->matriz[nx][ny];
 
-                    if (j > 0 && dp[i][j - 1].pontos_vida > 0) {
-                        int pontos_atual = dp[i][j - 1].pontos_vida + caverna->matriz[i][j];
-                        if (pontos_atual > max_pontos && pontos_atual > 0) {
-                            max_pontos = pontos_atual;
-                            origem_x = i;
-                            origem_y = j - 1;
-                        }
-                    }
+                int novo_pontos = pontos_atual + valor_celula;
 
-                    if (max_pontos > INT_MIN) {
-                        dp[i][j].pontos_vida = max_pontos;
-                        dp[i][j].veio_x = origem_x;
-                        dp[i][j].veio_y = origem_y;
-
-                        if (i == fim_x && j == fim_y && max_pontos > melhor_pontos) {
-                            melhor_pontos = max_pontos;
-                            melhor_inicio_x = inicio_i;
-                            melhor_inicio_y = inicio_j;
-                        }
-                    }
+                if (novo_pontos > dp[nx][ny].pontos_vida) {
+                    dp[nx][ny].pontos_vida = novo_pontos;
+                    dp[nx][ny].veio_x = x;
+                    dp[nx][ny].veio_y = y;
+                    fila[tras++] = (Posicao){nx, ny};
                 }
             }
         }
     }
 
-    if (melhor_pontos > INT_MIN) {
-        printf("Melhor caminho encontrado com %d pontos de vida.\n", melhor_pontos);
-        int caminho_length = 0;
-        int atual_x = fim_x, atual_y = fim_y;
-
-        while (atual_x != -1 && atual_y != -1) {
-            caminho[caminho_length][0] = atual_x;
-            caminho[caminho_length][1] = atual_y;
-            caminho_length++;
-
-            int prox_x = dp[atual_x][atual_y].veio_x;
-            int prox_y = dp[atual_x][atual_y].veio_y;
-            atual_x = prox_x;
-            atual_y = prox_y;
-        }
-
-        for (int i = 0; i < caminho_length / 2; i++) {
-            int temp_x = caminho[i][0];
-            int temp_y = caminho[i][1];
-            caminho[i][0] = caminho[caminho_length - 1 - i][0];
-            caminho[i][1] = caminho[caminho_length - 1 - i][1];
-            caminho[caminho_length - 1 - i][0] = temp_x;
-            caminho[caminho_length - 1 - i][1] = temp_y;
-        }
-
-        return caminho_length;
+    // Verificar se o ponto final foi alcançado
+    if (dp[fim_x][fim_y].pontos_vida == INT_MIN) {
+        printf("Nenhum caminho viável encontrado até o ponto de saída 'F'.\n");
+        return 0;
     }
 
-    printf("Nenhum caminho viável encontrado.\n");
-    return 0;
+    // Reconstruir o caminho do ponto final para o inicial
+    int caminho_length = 0;
+    int atual_x = fim_x, atual_y = fim_y;
+
+    while (atual_x != -1 && atual_y != -1) {
+        caminho[caminho_length][0] = atual_x;
+        caminho[caminho_length][1] = atual_y;
+        caminho_length++;
+
+        int prox_x = dp[atual_x][atual_y].veio_x;
+        int prox_y = dp[atual_x][atual_y].veio_y;
+        atual_x = prox_x;
+        atual_y = prox_y;
+    }
+
+    // Inverter o caminho para começar do início
+    for (int i = 0; i < caminho_length / 2; i++) {
+        int temp_x = caminho[i][0];
+        int temp_y = caminho[i][1];
+        caminho[i][0] = caminho[caminho_length - 1 - i][0];
+        caminho[i][1] = caminho[caminho_length - 1 - i][1];
+        caminho[caminho_length - 1 - i][0] = temp_x;
+        caminho[caminho_length - 1 - i][1] = temp_y;
+    }
+
+    printf("Melhor caminho encontrado com %d pontos de vida.\n", dp[fim_x][fim_y].pontos_vida);
+    return caminho_length;
 }
